@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecte en Développement</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;700;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #1a0a2e;
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #ui-layer>* {
+      pointer-events: auto;
+    }
+
+    #title-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #1a0a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      background-size: cover;
+      background-position: center;
+    }
+
+    #title-screen::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 0;
+    }
+
+    #title-screen>* {
+      position: relative;
+      z-index: 1;
+    }
+
+    #title-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    #title-screen h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 26px;
+      color: #f4a523;
+      text-shadow: 3px 3px 0 #2d1b69, 0 0 30px rgba(244, 165, 35, 0.6);
+      text-align: center;
+      line-height: 1.6;
+      animation: titlePulse 2s ease-in-out infinite;
+    }
+
+    #title-screen h2 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: #fff;
+      margin-top: 12px;
+      text-shadow: 2px 2px 0 #e8740c;
+      opacity: 0.9;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    @keyframes titlePulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.03);
+      }
+    }
+
+    .start-btn {
+      margin-top: 40px;
+      padding: 16px 48px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 16px;
+      background: linear-gradient(180deg, #f4a523, #e8740c);
+      color: #1a0a2e;
+      border: 4px solid #fff;
+      border-radius: 12px;
+      cursor: pointer;
+      animation: btnGlow 1.5s ease-in-out infinite;
+      transition: transform 0.2s;
+    }
+
+    .start-btn:hover {
+      transform: scale(1.1);
+    }
+
+    @keyframes btnGlow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 10px rgba(244, 165, 35, 0.5);
+      }
+
+      50% {
+        box-shadow: 0 0 30px rgba(244, 165, 35, 0.9);
+      }
+    }
+
+    /* Removed title-decoration here to not alter stars negatively, using old code */
+    .title-decoration {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .title-decoration .star {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle 2s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+
+      0%,
+      100% {
+        opacity: 0.3;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    /* CHARACTER SELECT */
+    #select-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #2d1b69 0%, #1a0a2e 100%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99;
+    }
+
+    #select-screen h2 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 18px;
+      color: #f4a523;
+      margin-bottom: 40px;
+      text-shadow: 2px 2px 0 #1a0a2e;
+    }
+
+    .char-cards {
+      display: flex;
+      gap: 40px;
+    }
+
+    .char-card {
+      width: 240px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 3px solid rgba(244, 165, 35, 0.3);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .char-card:hover {
+      transform: translateY(-10px);
+      border-color: #f4a523;
+      box-shadow: 0 10px 40px rgba(244, 165, 35, 0.3);
+    }
+
+    .char-card.selected {
+      border-color: #f4a523;
+      background: rgba(244, 165, 35, 0.15);
+      box-shadow: 0 0 40px rgba(244, 165, 35, 0.4);
+    }
+
+    .char-card img {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .char-card h3 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .char-card p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.4;
+    }
+
+    .play-btn {
+      margin-top: 30px;
+      padding: 14px 44px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      background: linear-gradient(180deg, #27ae60, #1e8449);
+      color: #fff;
+      border: 3px solid #2ecc71;
+      border-radius: 10px;
+      cursor: pointer;
+      display: none;
+      transition: all 0.3s;
+    }
+
+    .play-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+    }
+
+    /* HUD */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 12px 24px;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent);
+    }
+
+    .hud-item {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 13px;
+      color: #fff;
+      text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .hud-item span {
+      color: #f4a523;
+    }
+
+    #hearts {
+      display: flex;
+      gap: 6px;
+    }
+
+    .heart {
+      width: 22px;
+      height: 22px;
+      font-size: 18px;
+    }
+
+    /* GAME OVER / WIN */
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    #overlay h2 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 28px;
+      color: #f4a523;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 0 #000;
+    }
+
+    #overlay p {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 30px;
+    }
+
+    #overlay button {
+      padding: 14px 40px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      background: linear-gradient(180deg, #f4a523, #e8740c);
+      color: #1a0a2e;
+      border: 3px solid #fff;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    #overlay button:hover {
+      transform: scale(1.1);
+    }
+
+    /* MOBILE CONTROLS */
+    #mobile-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      display: none;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 60;
+    }
+
+    .ctrl-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .ctrl-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      color: #fff;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .ctrl-btn:active {
+      background: rgba(244, 165, 35, 0.5);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TITLE SCREEN -->
+  <div id="title-screen">
+    <div class="title-decoration" id="stars"></div>
+    <div id="title-content">
+      <h1>🏗️ ARCHITECTE EN<br>DÉVELOPPEMENT</h1>
+      <h2>🇨🇮 Côte d'Ivoire<br>🇧🇯 Bénin<br>🌍 Le Monde Entier</h2>
+      <button class="start-btn" id="start-btn" onclick="showSelect()">▶ COMMENCER</button>
+    </div>
+  </div>
+
+  <!-- CHARACTER SELECT -->
+  <div id="select-screen">
+    <h2>CHOISISSEZ VOTRE ARCHITECTE</h2>
+    <div class="char-cards">
+      <div class="char-card" id="card-koffi" onclick="selectChar('koffi')">
+        <img src="select_koffi.png" alt="Koffi">
+        <h3>KOFFI</h3>
+        <p>⚡ Vitesse: ★★★★★<br>💪 Force: ★★★☆☆<br>🏗️ Le Bâtisseur Énergique</p>
+      </div>
+      <div class="char-card" id="card-diabate" onclick="selectChar('diabate')">
+        <img src="select_diabate.png" alt="Diabaté">
+        <h3>DIABATÉ</h3>
+        <p>⚡ Vitesse: ★★★☆☆<br>💪 Force: ★★★★★<br>🏗️ Le Maître Architecte</p>
+      </div>
+    </div>
+    <button class="play-btn" id="play-btn" onclick="startGame()">🎮 JOUER !</button>
+  </div>
+
+  <!-- GAME CANVAS -->
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-item">SCORE: <span id="score-val">0</span></div>
+    <div id="hearts"></div>
+    <div class="hud-item">NIVEAU <span id="level-val">1</span></div>
+  </div>
+
+  <!-- GAME OVER / WIN OVERLAY -->
+  <div id="overlay">
+    <h2 id="overlay-title">FIN DE PARTIE</h2>
+    <p id="overlay-msg">Score: 0</p>
+    <button onclick="restartGame()">🔄 REJOUER</button>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="mobile-controls">
+    <div class="ctrl-group">
+      <div class="ctrl-btn" id="btn-left">◀</div>
+      <div class="ctrl-btn" id="btn-right">▶</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-btn" id="btn-jump">▲</div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+
+</html>
