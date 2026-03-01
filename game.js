@@ -92,11 +92,11 @@ function initAudio() {
   if (!menuMusic) {
     menuMusic = createAudio('music_menu.mp3', true);
     gameMusic1 = createAudio('music_gameplay.mp3', true);
-    gameMusic2 = createAudio('music_level2.mp3', true);
-    gameMusic3 = createAudio('music_level3.mp3', true);
-    invincibleMusic = createAudio('music_invincible.mp3', true);
+    gameMusic2 = createAudio('music_level2.mp3?v=2', true);
+    gameMusic3 = createAudio('music_level3.mp3?v=2', true);
+    invincibleMusic = createAudio('music_invincible.mp3?v=2', true);
     jumpSound = createAudio('sfx_jump.mp3', false);
-    jumpSound.volume = 1.0; // Increased volume
+    jumpSound.volume = 1.0;
   }
 }
 
