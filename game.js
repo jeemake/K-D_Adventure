@@ -657,6 +657,8 @@ async function submitScore() {
     await db.collection("scores").add({
       name: pName,
       score: score,
+      character: selectedChar,
+      max_level: level,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
 
@@ -697,6 +699,8 @@ async function submitScoreLoss() {
     await db.collection("scores").add({
       name: pName,
       score: score,
+      character: selectedChar,
+      max_level: level,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
 
