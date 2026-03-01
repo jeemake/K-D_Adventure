@@ -434,7 +434,11 @@ function update() {
       levelData.specialCoin.collected = true;
       score += 500;
       updateHUD();
-      p.superTimer = 630; // 10.5 seconds at 60fps
+
+      let dur = invincibleMusic.duration;
+      if (!dur || isNaN(dur) || dur === Infinity) dur = 10.5; // Fallback
+      p.superTimer = Math.floor(dur * 60);
+
       spawnParticles(levelData.specialCoin.x + 16, levelData.specialCoin.y + 16, '#00e5ff', 40);
       playSynthesizedSound('coin');
       playMusic(invincibleMusic);
@@ -887,7 +891,11 @@ function draw() {
 function drawPlayer(p) {
   let sheetKey;
   if (p.superTimer > 0) {
-    sheetKey = selectedChar + '_inv'; // e.g. koffi_inv or diabate_inv
+    if (p.superTimer <= 180 && Math.floor(frameCount / 5) % 2 === 0) {
+      sheetKey = selectedChar + '_sheet'; // Flicker warning
+    } else {
+      sheetKey = selectedChar + '_inv'; // e.g. koffi_inv or diabate_inv
+    }
   } else {
     sheetKey = selectedChar + '_sheet';
   }
