@@ -42,10 +42,12 @@ function loadImg(name, src) {
 loadImg('koffi', 'koffi_sprite.png');
 loadImg('diabate', 'diabate_sprite.png');
 loadImg('bg1', 'Background2.png');
-loadImg('bg2', 'bg_level2.png');
+loadImg('bg2', 'bg_level2_2.png'); // Nighttime background
 loadImg('bg3', 'bg_level3.png');
 loadImg('koffi_sheet', 'koffi_sheet.png');
 loadImg('diabate_sheet', 'diabate_sheet.png');
+loadImg('koffi_inv', 'invisible_Koffi.png');
+loadImg('diabate_inv', 'invisible_diabate.png');
 loadImg('landing_bg', 'landing_bg.png');
 
 // Sprite sheet config: 4 cols x 2 rows = 8 frames
@@ -63,6 +65,7 @@ let menuMusic = null;
 let gameMusic1 = null;
 let gameMusic2 = null;
 let gameMusic3 = null;
+let invincibleMusic = null;
 let jumpSound = null;
 let currentMusic = null;
 
@@ -79,6 +82,7 @@ function initAudio() {
     gameMusic1 = createAudio('music_gameplay.mp3', true);
     gameMusic2 = createAudio('music_level2.mp3', true);
     gameMusic3 = createAudio('music_level3.mp3', true);
+    invincibleMusic = createAudio('music_invincible.mp3', true);
     jumpSound = createAudio('sfx_jump.mp3', false);
     jumpSound.volume = 1.0; // Increased volume
   }
@@ -237,24 +241,35 @@ function generateLevel(lvl) {
   }
   signs.push({ x: levelWidth - 320, y: H - 60, w: 80, h: 50, text: 'Livraison', index: texts.length, collected: false });
 
-  return { platforms, coins, enemies, flag, signs, width: levelWidth };
+  // Special Coin (1 per level)
+  let specialCoinX;
+  if (lvl === 3) {
+    specialCoinX = flag.x - 300; // Near the end for level 3
+  } else {
+    specialCoinX = levelWidth / 2 + Math.random() * 500; // Somewhere in the middle
+  }
+  const specialCoin = { x: specialCoinX, y: H - 180, w: 32, h: 32, collected: false };
+
+  return { platforms, coins, enemies, flag, signs, specialCoin, width: levelWidth };
 }
 
 // ---- PLAYER ----
 let player = null;
 let levelData = null;
 
-function createPlayer() {
+function createPlayer(x = 100, y = H - 200, char = 'koffi') {
   return {
-    x: 100, y: H - 160,
-    w: 44, h: 56,
+    x, y,
+    w: 36, h: 48,
     vx: 0, vy: 0,
+    speed: 4, jumpPower: -9.5,
     onGround: false,
-    facing: 1,
+    facing: 1, // 1 right, -1 left
     animFrame: 0,
     animTimer: 0,
     jumpCount: 0,
     invincible: 0,
+    superTimer: 0, // Tracker for the 10.5sec invincibility (630 frames at 60fps)
     prevState: 'idle',
     currentSignIndex: 0
   };
@@ -356,10 +371,10 @@ function update() {
   if (keys['ArrowLeft'] || keys['KeyA']) { p.vx -= 0.8; p.facing = -1; }
   if (keys['ArrowRight'] || keys['KeyD']) { p.vx += 0.8; p.facing = 1; }
   if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && p.jumpCount < MAX_JUMPS) {
-    p.vy = JUMP_FORCE;
+    p.vy = p.superTimer > 0 ? JUMP_FORCE * 1.3 : JUMP_FORCE; // Higher jump when invincible
     p.jumpCount++;
     keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false;
-    spawnParticles(p.x + p.w / 2, p.y + p.h, '#f4a523', 5);
+    spawnParticles(p.x + p.w / 2, p.y + p.h, p.superTimer > 0 ? '#fff' : '#f4a523', 5);
     playJumpSfx();
   }
 
@@ -413,6 +428,19 @@ function update() {
     }
   }
 
+  // Special Coin
+  if (levelData.specialCoin && !levelData.specialCoin.collected) {
+    if (rectOverlap(p, levelData.specialCoin)) {
+      levelData.specialCoin.collected = true;
+      score += 500;
+      updateHUD();
+      p.superTimer = 630; // 10.5 seconds at 60fps
+      spawnParticles(levelData.specialCoin.x + 16, levelData.specialCoin.y + 16, '#00e5ff', 40);
+      playSynthesizedSound('coin');
+      playMusic(invincibleMusic);
+    }
+  }
+
   // Enemies
   for (const e of levelData.enemies) {
     if (!e.alive) continue;
@@ -423,16 +451,26 @@ function update() {
         e.y = pl.y - e.h;
       }
     }
-    if (rectOverlap(p, e) && p.invincible <= 0) {
-      if (p.vy > 0 && p.y + p.h - e.y < 20) {
+    if (rectOverlap(p, e)) {
+      if (p.superTimer > 0) {
+        // Invincible kill
         e.alive = false;
-        p.vy = -8;
-        score += 25;
+        score += 50;
         updateHUD();
-        spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#e74c3c', 12);
+        spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#fff', 15);
         playSynthesizedSound('stomp');
-      } else {
-        loseLife(); return;
+      } else if (p.invincible <= 0) {
+        if (p.vy > 0 && p.y + p.h - e.y < 20) {
+          // Normal stomp
+          e.alive = false;
+          p.vy = -8;
+          score += 25;
+          updateHUD();
+          spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#e74c3c', 12);
+          playSynthesizedSound('stomp');
+        } else {
+          loseLife(); return;
+        }
       }
     }
   }
@@ -471,8 +509,21 @@ function update() {
     return;
   }
 
-  // Invincibility timer
+  // Invincibility/Super timers
   if (p.invincible > 0) p.invincible--;
+  if (p.superTimer > 0) {
+    p.superTimer--;
+    if (Math.random() < 0.2) {
+      // Spawn white aura particles
+      spawnParticles(p.x + Math.random() * p.w, p.y + Math.random() * p.h, '#fff', 1);
+    }
+    if (p.superTimer <= 0) {
+      // Revert music
+      if (level === 1) playMusic(gameMusic1);
+      else if (level === 2) playMusic(gameMusic2);
+      else if (level === 3) playMusic(gameMusic3);
+    }
+  }
 
   // Camera
   const targetCam = p.x - W / 3;
@@ -591,8 +642,15 @@ function draw() {
       grd.addColorStop(1, '#654321');
       ctx.fillStyle = grd;
       ctx.fillRect(pl.x, pl.y, pl.w, pl.h);
+
+      if (level === 2) {
+        ctx.shadowColor = '#00e5ff';
+        ctx.shadowBlur = 10;
+      }
       ctx.fillStyle = '#27ae60';
       ctx.fillRect(pl.x, pl.y, pl.w, 8);
+      ctx.shadowBlur = 0;
+
       ctx.fillStyle = '#2ecc71';
       ctx.fillRect(pl.x, pl.y, pl.w, 4);
       ctx.strokeStyle = 'rgba(0,0,0,0.2)';
@@ -623,10 +681,18 @@ function draw() {
     coinGrd.addColorStop(0, '#fff5cc');
     coinGrd.addColorStop(0.5, '#f4a523');
     coinGrd.addColorStop(1, '#e8740c');
+
+    if (level === 2) {
+      ctx.shadowColor = '#f4a523';
+      ctx.shadowBlur = 15;
+    }
+
     ctx.fillStyle = coinGrd;
     ctx.beginPath();
     ctx.arc(c.x + 12, cy + 12, 12, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
+
     ctx.strokeStyle = '#b8860b';
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -634,6 +700,35 @@ function draw() {
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('★', c.x + 12, cy + 16);
+  }
+
+  // Special Coin
+  if (levelData.specialCoin && !levelData.specialCoin.collected) {
+    const sc = levelData.specialCoin;
+    if (sc.x + sc.w >= cameraX - 50 && sc.x <= cameraX + W + 50) {
+      const cy = sc.y + Math.sin(frameCount * 0.1 + sc.x) * 6;
+      const coinGrd = ctx.createRadialGradient(sc.x + 16, cy + 16, 2, sc.x + 16, cy + 16, 18);
+      coinGrd.addColorStop(0, '#e0f7fa');
+      coinGrd.addColorStop(0.5, '#00e5ff');
+      coinGrd.addColorStop(1, '#00b8d4');
+
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 25;
+
+      ctx.fillStyle = coinGrd;
+      ctx.beginPath();
+      ctx.arc(sc.x + 16, cy + 16, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('P', sc.x + 16, cy + 22);
+    }
   }
 
   // Enemies
@@ -790,7 +885,13 @@ function draw() {
 }
 
 function drawPlayer(p) {
-  const sheetKey = selectedChar + '_sheet';
+  let sheetKey;
+  if (p.superTimer > 0) {
+    sheetKey = selectedChar + '_inv'; // e.g. koffi_inv or diabate_inv
+  } else {
+    sheetKey = selectedChar + '_sheet';
+  }
+
   const sheet = imgs[sheetKey];
   if (sheet && sheet.complete && sheet.naturalWidth > 0) {
     ctx.save();
