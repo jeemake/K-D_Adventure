@@ -7,6 +7,18 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+// ---- FIREBASE INIT ----
+const firebaseConfig = {
+  apiKey: "AIzaSyCJXfYPozFDr-MfLeowraXnTDmGbQbkgmE",
+  authDomain: "kd-aventure.firebaseapp.com",
+  projectId: "kd-aventure",
+  storageBucket: "kd-aventure.firebasestorage.app",
+  messagingSenderId: "146622414027",
+  appId: "1:146622414027:web:eb66bb0869b78b702cef4e"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // ---- GLOBALS ----
 let W, H;
 const G_SCALE = 1.35; // Global scaling to make everything bigger
@@ -632,16 +644,44 @@ function showOverlay(title, msg) {
   document.getElementById('overlay').style.display = 'flex';
 }
 
-function submitScore() {
+async function submitScore() {
   const pName = document.getElementById('player-name-input').value || 'Joueur Anonyme';
-  console.log("Player name submitted:", pName);
 
   document.getElementById('victory-screen').style.display = 'none';
-
-  // Show summary overlay
-  document.getElementById('leaderboard-name').textContent = "Pionnier : " + pName;
-  document.getElementById('leaderboard-score').textContent = "Score Final : " + score + " points";
+  document.getElementById('leaderboard-name').innerHTML = "<span style='color:#fff;font-size:12px;'>Chargement des scores...</span>";
+  document.getElementById('leaderboard-score').textContent = "";
   document.getElementById('leaderboard-screen').style.display = 'flex';
+
+  try {
+    // 1. Save score to Firebase
+    await db.collection("scores").add({
+      name: pName,
+      score: score,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Fetch Top 5 Scores
+    const snapshot = await db.collection("scores")
+      .orderBy("score", "desc")
+      .limit(5)
+      .get();
+
+    let scoresHtml = `<div style="font-size:14px; margin-bottom:15px; color:#2ecc71;">Ton Score: ${score}</div>`;
+    scoresHtml += `<div style="font-size:16px; color:#f4a523; margin-bottom:10px; text-decoration:underline;">TOP 5</div>`;
+
+    let rank = 1;
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      scoresHtml += `<div style="font-size:12px; color:#fff; margin-bottom:6px;">${rank}. ${data.name} - <span style="color:#f4a523">${data.score}</span> pts</div>`;
+      rank++;
+    });
+
+    document.getElementById('leaderboard-name').innerHTML = scoresHtml;
+  } catch (error) {
+    console.error("Firebase Error: ", error);
+    document.getElementById('leaderboard-name').textContent = "Erreur de connexion au classement.";
+    document.getElementById('leaderboard-score').textContent = "Score Final : " + score + " points";
+  }
 }
 
 function restartFromLeaderboard() {
