@@ -112,6 +112,14 @@ function playSynthesizedSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
     osc.start(now);
     osc.stop(now + 0.2);
+  } else if (type === 'break') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, now);
+    osc.frequency.exponentialRampToValueAtTime(20, now + 0.1);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.15);
   } else if (type === 'death') {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(300, now);
@@ -386,8 +394,17 @@ function update() {
 
   // Move X
   p.x += p.vx;
-  for (const pl of levelData.platforms) {
+  for (let i = levelData.platforms.length - 1; i >= 0; i--) {
+    const pl = levelData.platforms[i];
     if (rectOverlap(p, pl)) {
+      if (p.superTimer > 0 && pl.type === 'float') {
+        levelData.platforms.splice(i, 1);
+        spawnParticles(pl.x + pl.w / 2, pl.y + pl.h / 2, '#8B4513', 15);
+        playSynthesizedSound('break');
+        score += 20;
+        updateHUD();
+        continue;
+      }
       if (p.vx > 0) p.x = pl.x - p.w;
       else p.x = pl.x + pl.w;
       p.vx = 0;
@@ -397,8 +414,17 @@ function update() {
   // Move Y
   p.onGround = false;
   p.y += p.vy;
-  for (const pl of levelData.platforms) {
+  for (let i = levelData.platforms.length - 1; i >= 0; i--) {
+    const pl = levelData.platforms[i];
     if (rectOverlap(p, pl)) {
+      if (p.superTimer > 0 && pl.type === 'float') {
+        levelData.platforms.splice(i, 1);
+        spawnParticles(pl.x + pl.w / 2, pl.y + pl.h / 2, '#8B4513', 15);
+        playSynthesizedSound('break');
+        score += 20;
+        updateHUD();
+        continue;
+      }
       if (p.vy > 0) {
         p.y = pl.y - p.h;
         p.vy = 0;
@@ -508,7 +534,16 @@ function update() {
       if (level === 2) playMusic(gameMusic2);
       if (level === 3) playMusic(gameMusic3);
     } else {
-      showOverlay('🏆 VICTOIRE !', 'Score final : ' + score);
+      // Custom Victory Sequence
+      gameRunning = false;
+      playMusic(menuMusic);
+      document.getElementById('hud').style.display = 'none';
+      if ('ontouchstart' in window) {
+        document.getElementById('mobile-controls').style.display = 'none';
+      }
+      document.getElementById('victory-score-msg').textContent = 'Ton Score Final : ' + score;
+      document.getElementById('victory-char-img').src = 'select_' + selectedChar + '.png';
+      document.getElementById('victory-screen').style.display = 'flex';
     }
     return;
   }
@@ -595,6 +630,23 @@ function showOverlay(title, msg) {
   document.getElementById('overlay-title').textContent = title;
   document.getElementById('overlay-msg').textContent = msg;
   document.getElementById('overlay').style.display = 'flex';
+}
+
+function submitScore() {
+  const pName = document.getElementById('player-name-input').value || 'Joueur Anonyme';
+  console.log("Player name submitted:", pName);
+
+  document.getElementById('victory-screen').style.display = 'none';
+
+  // Show summary overlay
+  document.getElementById('leaderboard-name').textContent = "Pionnier : " + pName;
+  document.getElementById('leaderboard-score').textContent = "Score Final : " + score + " points";
+  document.getElementById('leaderboard-screen').style.display = 'flex';
+}
+
+function restartFromLeaderboard() {
+  document.getElementById('leaderboard-screen').style.display = 'none';
+  restartGame();
 }
 
 // ---- DRAWING ----

@@ -396,7 +396,7 @@
   <div id="title-screen">
     <div class="title-decoration" id="stars"></div>
     <div id="title-content">
-      <h1>🏗️ ARCHITECTE EN<br>DÉVELOPPEMENT</h1>
+      <h1>🏗️ ARCHITECTES EN<br>DÉVELOPPEMENT</h1>
       <h2>🇨🇮 Côte d'Ivoire<br>🇧🇯 Bénin<br>🌍 Le Monde Entier</h2>
       <button class="start-btn" id="start-btn" onclick="showSelect()">▶ COMMENCER</button>
     </div>
@@ -430,11 +430,62 @@
     <div class="hud-item">NIVEAU <span id="level-val">1</span></div>
   </div>
 
-  <!-- GAME OVER / WIN OVERLAY -->
+  <!-- GAME OVER OVERLAY -->
   <div id="overlay">
     <h2 id="overlay-title">FIN DE PARTIE</h2>
     <p id="overlay-msg">Score: 0</p>
     <button onclick="restartGame()">🔄 REJOUER</button>
+  </div>
+
+  <!-- VICTORY OVERLAY -->
+  <div id="victory-screen" style="
+      position: absolute; top:0; left:0; width:100%; height:100%; 
+      background: rgba(26, 10, 46, 0.95); display: none; 
+      flex-direction: column; align-items: center; justify-content: center; z-index: 210;">
+    <h2
+      style="font-family:'Press Start 2P', monospace; color:#2ecc71; font-size:24px; text-shadow:2px 2px 0 #000; margin-bottom:10px;text-align:center;">
+      VICTOIRE !</h2>
+    <img id="victory-char-img" src="" alt="Architect"
+      style="width:120px; height:120px; border-radius:12px; border:3px solid #f4a523; margin-bottom:15px; box-shadow: 0 0 20px rgba(244,165,35,0.4);">
+    <p id="victory-score-msg"
+      style="font-family:'Press Start 2P', monospace; color:#fff; font-size:16px; margin-bottom:15px;">Ton Score Final :
+      0</p>
+    <p style="color:#f4a523; font-size:16px; font-weight:bold; margin-bottom:20px; text-align:center; padding: 0 20px;">
+      "C'est bon maintenant tu as assez joué, faut aller bara! "
+    </p>
+    <label style="color:#fff; font-weight:bold; margin-bottom:8px;">Laisse ton nom pour la postérité :</label>
+    <input type="text" id="player-name-input" placeholder="Ton Nom..." style="
+      padding:10px 15px; border-radius:8px; border:2px solid #e8740c; 
+      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif; 
+      font-size:16px; font-weight:bold; outline:none; text-align:center; margin-bottom:20px; width:220px;">
+    <button onclick="submitScore()" style="
+      padding:12px 30px; font-family:'Press Start 2P', monospace; font-size:12px;
+      background:linear-gradient(180deg, #f4a523, #e8740c); color:#1a0a2e;
+      border:3px solid #fff; border-radius:8px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+      VALIDER
+    </button>
+  </div>
+
+  <!-- LEADERBOARD OVERLAY -->
+  <div id="leaderboard-screen" style="
+      position: absolute; top:0; left:0; width:100%; height:100%; 
+      background: rgba(26, 10, 46, 0.95); display: none; 
+      flex-direction: column; align-items: center; justify-content: center; z-index: 220;">
+    <h2
+      style="font-family:'Press Start 2P', monospace; color:#f4a523; font-size:24px; text-shadow:2px 2px 0 #000; margin-bottom:20px;text-align:center;">
+      CLASSEMENT</h2>
+    <div
+      style="background: rgba(255,255,255,0.1); border: 2px solid #e8740c; border-radius: 10px; padding: 20px; margin-bottom: 30px; width: 300px; text-align: center;">
+      <p id="leaderboard-name"
+        style="font-family:'Press Start 2P', monospace; color:#2ecc71; font-size:18px; margin-bottom:10px;"></p>
+      <p id="leaderboard-score" style="font-family:'Press Start 2P', monospace; color:#fff; font-size:16px;"></p>
+    </div>
+    <button onclick="restartFromLeaderboard()" style="
+      padding:14px 40px; font-family:'Press Start 2P', monospace; font-size:14px;
+      background:linear-gradient(180deg, #27ae60, #1e8449); color:#fff;
+      border:3px solid #fff; border-radius:10px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+      🔄 REJOUER
+    </button>
   </div>
 
   <!-- MOBILE CONTROLS -->
