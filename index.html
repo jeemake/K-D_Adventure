@@ -434,7 +434,12 @@
   <div id="overlay">
     <h2 id="overlay-title">FIN DE PARTIE</h2>
     <p id="overlay-msg">Score: 0</p>
-    <button onclick="restartGame()">🔄 REJOUER</button>
+    <label style="color:#fff; font-weight:bold; margin-bottom:8px;">Laisse ton nom pour la postérité :</label>
+    <input type="text" id="gameover-name-input" placeholder="Ton Nom..." style="
+      padding:10px 15px; border-radius:8px; border:2px solid #e74c3c; 
+      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif; 
+      font-size:16px; font-weight:bold; outline:none; text-align:center; margin-bottom:20px; width:220px;">
+    <button onclick="submitScoreLoss()">VALIDER</button>
   </div>
 
   <!-- VICTORY OVERLAY -->

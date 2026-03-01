@@ -684,6 +684,46 @@ async function submitScore() {
   }
 }
 
+async function submitScoreLoss() {
+  const pName = document.getElementById('gameover-name-input').value || 'Joueur Anonyme';
+
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('leaderboard-name').innerHTML = "<span style='color:#fff;font-size:12px;'>Chargement des scores...</span>";
+  document.getElementById('leaderboard-score').textContent = "";
+  document.getElementById('leaderboard-screen').style.display = 'flex';
+
+  try {
+    // 1. Save score to Firebase
+    await db.collection("scores").add({
+      name: pName,
+      score: score,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Fetch Top 5 Scores
+    const snapshot = await db.collection("scores")
+      .orderBy("score", "desc")
+      .limit(5)
+      .get();
+
+    let scoresHtml = `<div style="font-size:14px; margin-bottom:15px; color:#e74c3c;">Ton Score: ${score}</div>`;
+    scoresHtml += `<div style="font-size:16px; color:#f4a523; margin-bottom:10px; text-decoration:underline;">TOP 5</div>`;
+
+    let rank = 1;
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      scoresHtml += `<div style="font-size:12px; color:#fff; margin-bottom:6px;">${rank}. ${data.name} - <span style="color:#f4a523">${data.score}</span> pts</div>`;
+      rank++;
+    });
+
+    document.getElementById('leaderboard-name').innerHTML = scoresHtml;
+  } catch (error) {
+    console.error("Firebase Error: ", error);
+    document.getElementById('leaderboard-name').textContent = "Erreur de connexion au classement.";
+    document.getElementById('leaderboard-score').textContent = "Score Final : " + score + " points";
+  }
+}
+
 function restartFromLeaderboard() {
   document.getElementById('leaderboard-screen').style.display = 'none';
   restartGame();
