@@ -36,6 +36,7 @@ let frameCount = 0;
 let bgElements = [];
 let lastCheckpointX = 100;
 let screenShake = 0;
+let cashTransition = 0;  // countdown before level transition after HONORAIRES
 let tutorialActive = false;
 let tutorialShown = localStorage.getItem('kd_tutorial_shown') === 'true';
 
@@ -43,6 +44,13 @@ const MUSIC_VOLUME = 0.4;
 const SFX_VOLUME = 1.0;
 const SIGN_NAMES = ['ESQ', 'APS', 'APD', 'DCE', 'DAO', 'CHT', 'LIV'];
 const SIGN_FULL = ['ESQUISSE', 'APS', 'APD', 'DCE', 'DAO', 'Chantier', 'Livraison'];
+
+// ---- BOSS DEFINITIONS ----
+const BOSS_DEFS = [
+  { drawW: 110, drawH: 110, w: 88,  h: 82,  hp: 3, name: 'Client Gaou'   },
+  { drawW: 130, drawH: 130, w: 104, h: 97,  hp: 3, name: 'Administration' },
+  { drawW: 150, drawH: 150, w: 120, h: 112, hp: 3, name: 'Budget'         },
+];
 
 // ---- RESIZE ----
 function resize() {
@@ -95,6 +103,9 @@ loadImg('diabate_sheet', 'diabate_sheet.png');
 loadImg('koffi_inv', 'invisible_Koffi.png');
 loadImg('diabate_inv', 'invisible_diabate.png');
 loadImg('landing_bg', 'landing_bg.png');
+loadImg('archie1', 'Archimonster/ArchiMonster.png');
+loadImg('archie2', 'Archimonster/ArchiMonster 2.png');
+loadImg('cash', 'pileofcash.png');
 
 // Sprite sheet config: 4 cols x 2 rows = 8 frames
 const ANIM = {
@@ -255,7 +266,58 @@ function playSynthesizedSound(type) {
     gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
     osc2.start(now);
     osc2.stop(now + 0.22);
+  } else if (type === 'bossHit') {
+    // Heavy thud when boss takes damage
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+    gain.gain.setValueAtTime(0.45, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  } else if (type === 'fireball') {
+    // Crackly fire whoosh
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    osc.start(now);
+    osc.stop(now + 0.28);
   }
+}
+
+// ---- VICTORY FANFARE — played when player touches the HONORAIRES cash pile ----
+function playVictoryFanfare() {
+  if (!audioCtx) return;
+  if (soundMuted) return;
+  const vol = 0.28;
+  const now = audioCtx.currentTime;
+
+  function note(freq, startTime, duration, type = 'square') {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.type = type;
+    o.frequency.setValueAtTime(freq, now + startTime);
+    g.gain.setValueAtTime(vol, now + startTime);
+    g.gain.exponentialRampToValueAtTime(0.001, now + startTime + duration);
+    o.start(now + startTime);
+    o.stop(now + startTime + duration + 0.05);
+  }
+
+  // Ascending arpeggio → final major chord  (~2.0 s total)
+  note(392.00, 0.00, 0.13);  // G4
+  note(523.25, 0.14, 0.13);  // C5
+  note(659.25, 0.28, 0.13);  // E5
+  note(783.99, 0.42, 0.13);  // G5
+  note(1046.5, 0.56, 0.22);  // C6
+  // Final triumphant chord (C major)
+  note(523.25, 0.90, 0.85);  // C5
+  note(659.25, 0.90, 0.85);  // E5
+  note(783.99, 0.90, 0.85);  // G5
+  note(1046.5, 0.90, 0.85);  // C6
 }
 
 function playMusic(music) {
@@ -559,7 +621,38 @@ function generateLevel(lvl) {
   // Init background elements
   initBgElements(lvl);
 
-  return { platforms, coins, enemies, flag, signs, specialCoin, checkpoints, width: levelWidth };
+  // ---- BOSS ----
+  const def = BOSS_DEFS[lvl - 1];
+  const bossX = levelWidth - 600;
+  const boss = {
+    x: bossX,
+    y: H - 60 - def.h,
+    w: def.w, h: def.h,
+    drawW: def.drawW, drawH: def.drawH,
+    hp: def.hp, maxHp: def.hp,
+    name: def.name,
+    alive: true,
+    vx: 0.6,
+    startX: bossX,
+    range: 80,       // small patrol range
+    facing: -1,      // -1 = left (natural sprite orientation)
+    animFrame: 0,
+    animTimer: 0,
+    hitTimer: 0,     // flash when hit
+    fireTimer: lvl === 3 ? 210 : 0,
+  };
+
+  // ---- CASH PILE (HONORAIRES) — sits at the base of the flag pole ----
+  const cashW = 180, cashH = 140;
+  const cashPile = {
+    x: flag.x + 20 - cashW / 2,   // centred on pole (pole centre = flag.x + 20)
+    y: H - 60 - cashH,             // resting on the ground
+    w: cashW,
+    h: cashH,
+    triggered: false,
+  };
+
+  return { platforms, coins, enemies, flag, signs, specialCoin, checkpoints, boss, bossFireballs: [], cashPile, width: levelWidth };
 }
 
 // ---- PLAYER ----
@@ -991,6 +1084,75 @@ function update() {
     }
   }
 
+  // ---- BOSS UPDATE ----
+  if (levelData.boss && levelData.boss.alive) {
+    const b = levelData.boss;
+
+    // Small patrol left-right
+    if (Math.abs(b.x - b.startX) > b.range) b.vx *= -1;
+    b.x += b.vx;
+    b.facing = b.vx < 0 ? -1 : 1;
+
+    // Timers
+    if (b.hitTimer > 0) b.hitTimer--;
+    b.animTimer++;
+    if (b.animTimer >= 22) { b.animFrame = (b.animFrame + 1) % 2; b.animTimer = 0; }
+
+    // Level 3 fire attack
+    if (level === 3 && b.fireTimer > 0) {
+      b.fireTimer--;
+      if (b.fireTimer === 0) {
+        const fx = b.facing === -1 ? b.x : b.x + b.w;
+        levelData.bossFireballs.push({
+          x: fx, y: b.y + b.h * 0.4,
+          vx: b.facing * 3.5,
+          w: 22, h: 14, alive: true, life: 200
+        });
+        playSynthesizedSound('fireball');
+        b.fireTimer = 210; // ~3.5 s between shots
+      }
+    }
+
+    // Player ↔ boss collision
+    if (rectOverlap(p, b)) {
+      const stomping = p.vy > 0 && (p.y + p.h - b.y) < 38;
+      const powerHit = p.superTimer > 0 || p.groundPoundActive || p.dashActive;
+
+      if ((stomping || powerHit) && b.hitTimer === 0) {
+        b.hp--;
+        b.hitTimer = 35;
+        p.vy = -9;   // bounce player up
+        screenShake = 4;
+        spawnParticles(b.x + b.w / 2, b.y, '#e74c3c', 14);
+        playSynthesizedSound('bossHit');
+        if (b.hp <= 0) {
+          b.alive = false;
+          score += 200;
+          updateHUD();
+          spawnParticles(b.x + b.w / 2, b.y + b.h / 2, '#f4a523', 30);
+          playSynthesizedSound('stomp');
+        }
+      } else if (!stomping && !powerHit && p.invincible <= 0 && b.hitTimer === 0) {
+        loseLife(); return;
+      }
+    }
+  }
+
+  // ---- FIREBALL UPDATE ----
+  if (levelData.bossFireballs) {
+    for (let i = levelData.bossFireballs.length - 1; i >= 0; i--) {
+      const fb = levelData.bossFireballs[i];
+      if (!fb.alive) { levelData.bossFireballs.splice(i, 1); continue; }
+      fb.x += fb.vx;
+      fb.life--;
+      if (fb.life <= 0) { levelData.bossFireballs.splice(i, 1); continue; }
+      if (rectOverlap(p, fb) && p.invincible <= 0 && p.superTimer <= 0) {
+        fb.alive = false;
+        loseLife(); return;
+      }
+    }
+  }
+
   // Enemies
   for (const e of levelData.enemies) {
     if (!e.alive) continue;
@@ -1054,8 +1216,56 @@ function update() {
     }
   }
 
-  // Flag / Goal
-  if (rectOverlap(p, levelData.flag)) {
+  // ---- CASH PILE (HONORAIRES) — end-of-level trigger ----
+  if (levelData.cashPile && !levelData.cashPile.triggered && rectOverlap(p, levelData.cashPile)) {
+    levelData.cashPile.triggered = true;
+    cashTransition = 165;          // ~2.75 s at 60 fps (fanfare is ~1.75 s + brief pause)
+    if (currentMusic) { currentMusic.pause(); }
+    playVictoryFanfare();
+    screenShake = 5;
+    spawnParticles(levelData.cashPile.x + levelData.cashPile.w / 2, levelData.cashPile.y, '#f4d03f', 22);
+    spawnParticles(levelData.cashPile.x + levelData.cashPile.w / 2, levelData.cashPile.y + 30, '#27ae60', 14);
+  }
+
+  // Countdown → level transition
+  if (cashTransition > 0) {
+    cashTransition--;
+    if (cashTransition === 0) {
+      // Same transition logic as flag
+      if (level < 3) {
+        level++;
+        player.x = 100;
+        player.y = H - 200;
+        player.vx = 0;
+        player.vy = 0;
+        player.currentSignIndex = 0;
+        player.groundPoundActive = false;
+        player.groundPoundCooldown = 0;
+        player.dashActive = false;
+        player.dashTimer = 0;
+        player.dashCooldown = 0;
+        lastCheckpointX = 100;
+        levelData = generateLevel(level);
+        updateHUD();
+        if (level === 2) playMusic(gameMusic2);
+        if (level === 3) playMusic(gameMusic3);
+      } else {
+        gameRunning = false;
+        playMusic(menuMusic);
+        document.getElementById('hud').style.display = 'none';
+        if ('ontouchstart' in window) {
+          document.getElementById('mobile-controls').style.display = 'none';
+        }
+        document.getElementById('victory-score-msg').textContent = 'Ton Score Final : ' + score;
+        document.getElementById('victory-char-img').src = 'select_' + selectedChar + '.png';
+        document.getElementById('victory-screen').style.display = 'flex';
+      }
+      return;
+    }
+  }
+
+  // Flag / Goal (fallback — also works if player skips the cash pile)
+  if (cashTransition <= 0 && rectOverlap(p, levelData.flag)) {
     if (level < 3) {
       level++;
       player.x = 100;
@@ -1154,6 +1364,13 @@ function loseLife() {
   updateHUD();
   playSynthesizedSound('death');
   screenShake = 8;
+  // Abort any in-progress cash-pile transition and resume music
+  if (cashTransition > 0) {
+    cashTransition = 0;
+    if (levelData && levelData.cashPile) levelData.cashPile.triggered = false;
+    const track = level === 1 ? gameMusic1 : level === 2 ? gameMusic2 : gameMusic3;
+    playMusic(track);
+  }
   if (lives <= 0) {
     showOverlay('💀 FIN DE PARTIE', 'Score : ' + score);
   } else {
@@ -1694,6 +1911,82 @@ function draw() {
     drawEnemy(e);
   }
 
+  // ---- DRAW BOSS ----
+  if (levelData.boss && levelData.boss.alive) {
+    const b = levelData.boss;
+    if (!(b.x + b.w < cameraX - 50 || b.x > cameraX + W + 50)) {
+      const sprite = imgs[b.animFrame === 0 ? 'archie1' : 'archie2'];
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        ctx.save();
+        // Flash when hit: alternate between white-overlay and normal
+        if (b.hitTimer > 0 && Math.floor(b.hitTimer / 4) % 2 === 0) {
+          ctx.filter = 'brightness(8)';
+          ctx.globalAlpha = 0.6;
+        }
+        // Flip sprite when facing right (sprite naturally faces left)
+        if (b.facing === 1) {
+          ctx.translate(b.x + b.w / 2, 0);
+          ctx.scale(-1, 1);
+          ctx.translate(-(b.x + b.w / 2), 0);
+        }
+        const dx = b.x - (b.drawW - b.w) / 2;
+        const dy = b.y - (b.drawH - b.h) / 2;
+        ctx.drawImage(sprite, dx, dy, b.drawW, b.drawH);
+        ctx.restore();
+      }
+
+      // HP bar above boss
+      const barW = b.w * 0.85;
+      const barX = b.x + (b.w - barW) / 2;
+      const barY = b.y - 26;
+      ctx.fillStyle = '#2c2c2c';
+      ctx.fillRect(barX, barY, barW, 8);
+      ctx.fillStyle = b.hp === b.maxHp ? '#e74c3c' : b.hp > 1 ? '#e67e22' : '#c0392b';
+      ctx.fillRect(barX, barY, barW * (b.hp / b.maxHp), 8);
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, barY, barW, 8);
+
+      // Boss name label — moves with boss
+      ctx.save();
+      ctx.fillStyle = '#f4a523';
+      ctx.font = 'bold 10px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 6;
+      ctx.fillText(b.name, b.x + b.w / 2, barY - 6);
+      ctx.restore();
+    }
+  }
+
+  // ---- DRAW FIREBALLS ----
+  if (levelData.bossFireballs) {
+    for (const fb of levelData.bossFireballs) {
+      if (!fb.alive) continue;
+      if (fb.x + fb.w < cameraX - 50 || fb.x > cameraX + W + 50) continue;
+      ctx.save();
+      ctx.shadowColor = '#ff6b00';
+      ctx.shadowBlur = 14;
+      const flicker = 0.8 + Math.sin(frameCount * 0.4) * 0.2;
+      ctx.globalAlpha = flicker;
+      const fbGrd = ctx.createRadialGradient(fb.x + 11, fb.y + 7, 1, fb.x + 11, fb.y + 7, 12);
+      fbGrd.addColorStop(0, '#ffffff');
+      fbGrd.addColorStop(0.35, '#f4a523');
+      fbGrd.addColorStop(1, '#e74c3c');
+      ctx.fillStyle = fbGrd;
+      ctx.beginPath();
+      ctx.arc(fb.x + 11, fb.y + 7, 11, 0, Math.PI * 2);
+      ctx.fill();
+      // Trailing ember
+      ctx.globalAlpha = flicker * 0.4;
+      ctx.fillStyle = '#f4a523';
+      ctx.beginPath();
+      ctx.arc(fb.x + 11 - fb.vx * 2.5, fb.y + 7, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // Flag / Goal
   if (levelData.flag) {
     const f = levelData.flag;
@@ -1749,6 +2042,55 @@ function draw() {
     ctx.font = '24px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('🏗️', f.x + 20, f.y + 5);
+  }
+
+  // ---- DRAW CASH PILE (HONORAIRES) ----
+  if (levelData.cashPile) {
+    const cp = levelData.cashPile;
+    if (cp.x + cp.w > cameraX - 60 && cp.x < cameraX + W + 60) {
+      ctx.save();
+
+      // Golden glow — pulses faster once triggered
+      const glowSpeed = cp.triggered ? 0.25 : 0.08;
+      const glowSize = cp.triggered
+        ? 28 + Math.sin(frameCount * glowSpeed) * 10
+        : 12 + Math.sin(frameCount * glowSpeed) * 4;
+      ctx.shadowColor = '#f4d03f';
+      ctx.shadowBlur = glowSize;
+
+      const cashImg = imgs['cash'];
+      if (cashImg && cashImg.complete && cashImg.naturalWidth > 0) {
+        ctx.drawImage(cashImg, cp.x, cp.y, cp.w, cp.h);
+      } else {
+        // Fallback: simple drawn pile
+        ctx.fillStyle = '#27ae60';
+        ctx.beginPath();
+        ctx.ellipse(cp.x + cp.w / 2, cp.y + cp.h * 0.75, cp.w * 0.42, cp.h * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f4d03f';
+        ctx.beginPath();
+        ctx.ellipse(cp.x + cp.w / 2, cp.y + cp.h * 0.45, cp.w * 0.35, cp.h * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2ecc71';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💰', cp.x + cp.w / 2, cp.y + cp.h * 0.55);
+      }
+
+      ctx.restore();
+
+      // "HONORAIRES" label with subtle bounce when triggered
+      const labelBounce = cp.triggered ? Math.sin(frameCount * 0.18) * 4 : 0;
+      ctx.save();
+      ctx.font = 'bold 9px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 5;
+      ctx.fillStyle = '#f4d03f';
+      ctx.fillText('HONORAIRES', cp.x + cp.w / 2, cp.y - 10 + labelBounce);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   // Collectible Signs
