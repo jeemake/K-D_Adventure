@@ -40,7 +40,8 @@
       pointer-events: auto;
     }
 
-    #title-screen {
+    /* LOADING SCREEN */
+    #loading-screen {
       position: absolute;
       top: 0;
       left: 0;
@@ -48,6 +49,46 @@
       height: 100%;
       background: #1a0a2e;
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+    }
+
+    #loading-screen h2 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 16px;
+      color: #f4a523;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 0 #2d1b69;
+    }
+
+    #loading-bar-bg {
+      width: 260px;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid #f4a523;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #loading-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #f4a523, #e8740c);
+      border-radius: 6px;
+      transition: width 0.2s;
+    }
+
+    /* TITLE SCREEN */
+    #title-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #1a0a2e;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -146,7 +187,6 @@
       }
     }
 
-    /* Removed title-decoration here to not alter stars negatively, using old code */
     .title-decoration {
       position: absolute;
       width: 100%;
@@ -305,6 +345,74 @@
       font-size: 18px;
     }
 
+    /* SIGN TRACKER */
+    #sign-tracker {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .sign-step {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 5px;
+      padding: 3px 4px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.3);
+      white-space: nowrap;
+    }
+
+    .sign-step.collected {
+      background: rgba(244, 165, 35, 0.8);
+      color: #1a0a2e;
+      border-color: #f4a523;
+    }
+
+    .sign-step.active {
+      background: rgba(244, 165, 35, 0.2);
+      color: #f4a523;
+      border-color: #f4a523;
+      animation: signPulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes signPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 4px rgba(244, 165, 35, 0.3);
+      }
+
+      50% {
+        box-shadow: 0 0 10px rgba(244, 165, 35, 0.8);
+      }
+    }
+
+    /* SOUND TOGGLE */
+    #sound-toggle {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 110;
+      transition: background 0.2s;
+      line-height: 1;
+    }
+
+    #sound-toggle:hover {
+      background: rgba(244, 165, 35, 0.3);
+    }
+
     /* GAME OVER / WIN */
     #overlay {
       position: absolute;
@@ -392,7 +500,15 @@
 
 <body>
 
-  <!-- TITLE SCREEN -->
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen">
+    <h2>CHARGEMENT...</h2>
+    <div id="loading-bar-bg">
+      <div id="loading-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- TITLE SCREEN (hidden until loaded) -->
   <div id="title-screen">
     <div class="title-decoration" id="stars"></div>
     <div id="title-content">
@@ -409,12 +525,12 @@
       <div class="char-card" id="card-koffi" onclick="selectChar('koffi')">
         <img src="select_koffi.png" alt="Koffi">
         <h3>KOFFI</h3>
-        <p>⚡ Vitesse: ★★★★★<br>💪 Force: ★★★☆☆<br>🏗️ Le Bâtisseur Énergique</p>
+        <p>⚡ Vitesse: ★★★★★<br>💪 Force: ★★★☆☆<br>🏗️ Sprint Éclair!</p>
       </div>
       <div class="char-card" id="card-diabate" onclick="selectChar('diabate')">
         <img src="select_diabate.png" alt="Diabaté">
         <h3>DIABATÉ</h3>
-        <p>⚡ Vitesse: ★★★☆☆<br>💪 Force: ★★★★★<br>🏗️ Le Maître Architecte</p>
+        <p>⚡ Vitesse: ★★★☆☆<br>💪 Force: ★★★★★<br>🏗️ Frappe au Sol!</p>
       </div>
     </div>
     <button class="play-btn" id="play-btn" onclick="startGame()">🎮 JOUER !</button>
@@ -423,9 +539,13 @@
   <!-- GAME CANVAS -->
   <canvas id="game"></canvas>
 
+  <!-- SOUND TOGGLE -->
+  <button id="sound-toggle" onclick="toggleSound()">🔊</button>
+
   <!-- HUD -->
   <div id="hud">
     <div class="hud-item">SCORE: <span id="score-val">0</span></div>
+    <div id="sign-tracker"></div>
     <div id="hearts"></div>
     <div class="hud-item">NIVEAU <span id="level-val">1</span></div>
   </div>
@@ -436,16 +556,16 @@
     <p id="overlay-msg">Score: 0</p>
     <label style="color:#fff; font-weight:bold; margin-bottom:8px;">Laisse ton nom pour la postérité :</label>
     <input type="text" id="gameover-name-input" placeholder="Ton Nom..." style="
-      padding:10px 15px; border-radius:8px; border:2px solid #e74c3c; 
-      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif; 
+      padding:10px 15px; border-radius:8px; border:2px solid #e74c3c;
+      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif;
       font-size:16px; font-weight:bold; outline:none; text-align:center; margin-bottom:20px; width:220px;">
     <button onclick="submitScoreLoss()">VALIDER</button>
   </div>
 
   <!-- VICTORY OVERLAY -->
   <div id="victory-screen" style="
-      position: absolute; top:0; left:0; width:100%; height:100%; 
-      background: rgba(26, 10, 46, 0.95); display: none; 
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      background: rgba(26, 10, 46, 0.95); display: none;
       flex-direction: column; align-items: center; justify-content: center; z-index: 210;">
     <h2
       style="font-family:'Press Start 2P', monospace; color:#2ecc71; font-size:24px; text-shadow:2px 2px 0 #000; margin-bottom:10px;text-align:center;">
@@ -460,8 +580,8 @@
     </p>
     <label style="color:#fff; font-weight:bold; margin-bottom:8px;">Laisse ton nom pour la postérité :</label>
     <input type="text" id="player-name-input" placeholder="Ton Nom..." style="
-      padding:10px 15px; border-radius:8px; border:2px solid #e8740c; 
-      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif; 
+      padding:10px 15px; border-radius:8px; border:2px solid #e8740c;
+      background:rgba(255,255,255,0.1); color:#fff; font-family:'Outfit', sans-serif;
       font-size:16px; font-weight:bold; outline:none; text-align:center; margin-bottom:20px; width:220px;">
     <button onclick="submitScore()" style="
       padding:12px 30px; font-family:'Press Start 2P', monospace; font-size:12px;
@@ -473,8 +593,8 @@
 
   <!-- LEADERBOARD OVERLAY -->
   <div id="leaderboard-screen" style="
-      position: absolute; top:0; left:0; width:100%; height:100%; 
-      background: rgba(26, 10, 46, 0.95); display: none; 
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      background: rgba(26, 10, 46, 0.95); display: none;
       flex-direction: column; align-items: center; justify-content: center; z-index: 220;">
     <h2
       style="font-family:'Press Start 2P', monospace; color:#f4a523; font-size:24px; text-shadow:2px 2px 0 #000; margin-bottom:20px;text-align:center;">
@@ -500,6 +620,7 @@
       <div class="ctrl-btn" id="btn-right">▶</div>
     </div>
     <div class="ctrl-group">
+      <div class="ctrl-btn" id="btn-down">▼</div>
       <div class="ctrl-btn" id="btn-jump">▲</div>
     </div>
   </div>
