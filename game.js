@@ -717,6 +717,15 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
+// Dismiss tutorial on any tap (mobile doesn't fire keydown from touch buttons)
+document.addEventListener('touchstart', () => {
+  if (tutorialActive && gameRunning) {
+    tutorialActive = false;
+    tutorialShown = true;
+    localStorage.setItem('kd_tutorial_shown', 'true');
+  }
+}, { passive: true });
+
 // Mobile controls
 ['btn-left', 'btn-right', 'btn-jump', 'btn-down'].forEach(id => {
   const el = document.getElementById(id);
