@@ -722,8 +722,35 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
   const el = document.getElementById(id);
   if (!el) return;
   const code = id === 'btn-left' ? 'ArrowLeft' : id === 'btn-right' ? 'ArrowRight' : id === 'btn-down' ? 'ArrowDown' : 'Space';
-  el.addEventListener('touchstart', e => { e.preventDefault(); keys[code] = true; });
-  el.addEventListener('touchend', e => { e.preventDefault(); keys[code] = false; });
+
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    keys[code] = true;
+    // Short haptic pulse (Android Chrome + iOS Safari 13+)
+    if (navigator.vibrate) navigator.vibrate(8);
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    e.preventDefault();
+    keys[code] = false;
+  }, { passive: false });
+
+  // Fires when a phone call, notification, or system gesture steals the touch —
+  // without this the key stays "stuck" until the next touchstart
+  el.addEventListener('touchcancel', e => {
+    e.preventDefault();
+    keys[code] = false;
+  }, { passive: false });
+
+  // Releases the key cleanly when the player slides a finger off the button
+  el.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const rect = el.getBoundingClientRect();
+    const inside = touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                   touch.clientY >= rect.top  && touch.clientY <= rect.bottom;
+    keys[code] = inside;
+  }, { passive: false });
 });
 
 // ---- PHYSICS CONSTANTS ----
